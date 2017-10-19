@@ -17,7 +17,61 @@ mutex count_queue_mutex;
 bool mappers_running = true;
 
 void count_strings();
+void sum_counts();
 void fill_file_queue(ifstream &index_file, deque<string> &file_queue);
+
+int main()
+{
+  string temp;
+  vector<thread*> mappers;
+  vector<thread*> reducers;
+
+  ifstream index_file("files.dat");
+  fill_file_queue(index_file, file_queue);
+  index_file.close();
+
+  cout << "Enter the keyword/string to search for: " << endl;
+  cin >> search_str;
+  cout << "Enter the number of mapper threads to use: ";
+  cin >> num_mappers;
+  cout << "Enter the number of reducer threads to use: ";
+  cin >> num_reducers;
+
+  //num_mappers = file_queue.length;
+
+
+  //create mapper threads:
+  for (int i = 0; i < num_mappers; i++)
+  {
+    thread *mapper = new thread(&count_strings);
+    mappers.push_back(mapper);
+  }
+
+  //create reducer threads:
+  for (int i = 0; i < num_reducers; i++)
+  {
+    thread *reducer = new thread(&sum_counts);
+    reducers.push_back(reducer);
+  }
+
+  //wait for the termination of all mapper threads:
+  for (int i = 0; i < num_mappers; i++)
+  {
+    mappers[i]->join();
+  }
+
+  mappers_running = false;
+
+  //wait for the termination of all mapper threads:
+  for (int i = 0 ; i < num_reducers ; i++)
+  {
+    reducers[i]->join();
+  }
+
+  cout << "There are " << count_queue.front() << " total instances of the string \"" << search_str << "\"." << endl;
+
+  return 0;
+}
 
 void sum_counts()
 {
@@ -102,57 +156,4 @@ void fill_file_queue(ifstream &file, deque<string> &file_queue)
   {
     file_queue.push_back("data/"+filename);
   }
-}
-
-int main()
-{
-  string temp;
-  vector<thread*> mappers;
-  vector<thread*> reducers;
-
-  ifstream index_file("files.dat");
-  fill_file_queue(index_file, file_queue);
-  index_file.close();
-
-  cout << "Enter the keyword/string to search for: " << endl;
-  cin >> search_str;
-  cout << "Enter the number of mapper threads to use: ";
-  cin >> num_mappers;
-  cout << "Enter the number of reducer threads to use: ";
-  cin >> num_reducers;
-
-  //num_mappers = file_queue.length;
-
-
-  //create mapper threads:
-  for (int i = 0; i < num_mappers; i++)
-  {
-    thread *mapper = new thread(&count_strings);
-    mappers.push_back(mapper);
-  }
-
-  //create reducer threads:
-  for (int i = 0; i < num_reducers; i++)
-  {
-    thread *reducer = new thread(&sum_counts);
-    reducers.push_back(reducer);
-  }
-
-  //wait for the termination of all mapper threads:
-  for (int i = 0; i < num_mappers; i++)
-  {
-    mappers[i]->join();
-  }
-
-  mappers_running = false;
-
-  //wait for the termination of all mapper threads:
-  for (int i = 0 ; i < num_reducers ; i++)
-  {
-    reducers[i]->join();
-  }
-
-  cout << "There are " << count_queue.front() << " total instances of the string \"" << search_str << "\"." << endl;
-
-  return 0;
 }
