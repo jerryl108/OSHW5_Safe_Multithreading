@@ -7,160 +7,152 @@
 #include <mutex>
 using namespace std;
 
-deque<string> file_que;
-deque<int> count_que;
-int nMapper;
-int nReducer;
-string keyword;
-mutex file_queMtx;
-mutex count_queMtx;
-int current_mapper_working=0;
+deque<string> file_queue;
+deque<int> count_queue;
+int num_mappers;
+int num_reducers;
+string search_str;
+mutex file_queue_mutex;
+mutex count_queue_mutex;
+bool mappers_running = true;
 
-//int count_keyword_lbl(string material_que);
-void read_file(int id);
-void push_queue(ifstream &file,deque<string> &file_que);
-void find_sum();
-void user_input();
+void count_strings();
+void fill_file_queue(ifstream &index_file, deque<string> &file_queue);
 
-void sum()
+void sum_counts()
 {
   //cout << "AAA" << endl;
-  int temp1,temp2,sum;
-  while(current_mapper_working>0)
+  int count1, count2, sum;
+  while (mappers_running)
   {
-    count_queMtx.lock();
-    if(count_que.size()>1)
+    count_queue_mutex.lock();
+    if(count_queue.size() > 1)
     {
-      temp1=count_que.front();
-      count_que.pop_front();
-      temp2=count_que.front();
-      count_que.pop_front();
-      count_queMtx.unlock();
-      sum=temp1+temp2;
-      count_queMtx.lock();
-      count_que.push_back(sum);
-    }
-    count_queMtx.unlock();
+      count1 = count_queue.front();
+      count_queue.pop_front();
 
+      count2 = count_queue.front();
+      count_queue.pop_front();
+
+      count_queue_mutex.unlock();
+
+      sum = count1 + count2;
+
+      count_queue_mutex.lock();
+      count_queue.push_back(sum);
+    }
+    count_queue_mutex.unlock();
   }
 }
 
-void read_file(int id)
+void count_strings()
 {
   string file_name;
-  int count=0;
-  //cout << file_que.size() << endl;
-  while(1)
+  streambuf* read_buffer;
+  int count;
+  int search_str_index = 0;
+
+  while(true)
   {
-    count=0;
-    file_queMtx.lock();
-    if(file_que.size()>0)
+    file_queue_mutex.lock();
+    if (file_queue.size() > 0)
     {
-      file_name=file_que.front();
-      file_que.pop_front();
-      file_queMtx.unlock();
+      file_name=file_queue.front();
+      file_queue.pop_front();
     }
-    else
-    {
-      file_queMtx.unlock();
-      break;
-    }
+    else break; //no more files
+
     string material;
     ifstream file(file_name);
-    //cout << id << ":" << file_name << endl;
-    while(file>>material)
-    {
-      //file>>material;
-      if(material==keyword)
-      count++;
-    }
-    file.close();
-    count_queMtx.lock();
-    count_que.push_back(count);
-    count_queMtx.unlock();
-    //cout<<count << endl;
-  }
-  current_mapper_working--;
-}
 
-void push_queue(ifstream &file,deque<string> &file_que)
-{
-  string temp;
-  while(getline(file,temp))
-  {
-    file_que.push_back(temp);
-  }
-}
+    if (file)
+      streambuf* read_buffer = file.rdbuf();
+    else
 
-void user_input()
-{
-  cout << "Enter the number of mapper: ";
-  cin >> nMapper;
-  cout << "Enter the number of reducer: ";
-  cin >> nReducer;
-  cout << "Enter the keyword: ";
-  cin >> keyword;
-}
-/*
-int count_keyword_lbl(string material_que)
-{
-  //material_que="aaaaaaab";
-  //keyword="aa";
-  int count=0;
-  for(int i=0;i<material_que.size();i++)
-  {
-    if(material_que[i]==keyword[0])
+    //read file in one character at a time:
+    while (read_buffer->sgetc() != EOF)
     {
-      for(int j=1;j+i<material_que.size()&&j<keyword.size();j++)
+      char c = read_buffer->sbumpc();
+
+      if (c==search_str[search_str_index])
       {
-        if(keyword[j]!=material_que[i+j])
-        break;
-        if(j==keyword.size()-1)
-        {
-          count++;
-          i+=keyword.size()-1;
-        }
+        search_str_index++;
+      }
+      else search_str_index = 0;
+      if (search_str_index == search_str.length())
+      {
+        count++;
+        search_str_index = 0;
       }
     }
-  }
-  return count;
-}
-*/
 
+    file.close();
+
+    //add count to reducer queue:
+    count_queue_mutex.lock();
+    count_queue.push_back(count);
+    count_queue_mutex.unlock();
+  }
+}
+
+void fill_file_queue(ifstream &file, deque<string> &file_queue)
+{
+  string filename;
+  while(getline(file, filename))
+  {
+    file_queue.push_back("data/"+filename);
+  }
+}
 
 int main()
 {
   string temp;
-  //string temp1;
-  ifstream file("files.dat");
-  push_queue(file,file_que);
-  file.close();
-  //keyword = "the";
-  //cout << "run" << endl;
-  user_input();
-
-
-  current_mapper_working=nMapper;
   vector<thread*> mappers;
-  for(int i=0;i<nMapper;i++){
-    thread *tmp = new thread(&read_file,i);
-    mappers.push_back(tmp);
-  }
   vector<thread*> reducers;
-  for(int i=0;i<nReducer;i++){
-    thread *tmp = new thread(&sum);
-    reducers.push_back(tmp);
+
+  ifstream index_file("files.dat");
+  fill_file_queue(index_file, file_queue);
+  index_file.close();
+
+  cout << "Enter the keyword/string to search for: " << endl;
+  cin >> search_str;
+  cout << "Enter the number of mapper threads to use: ";
+  cin >> num_mappers;
+  cout << "Enter the number of reducer threads to use: ";
+  cin >> num_reducers;
+
+  //num_mappers = file_queue.length;
+
+
+  //create mapper threads:
+  for (int i = 0; i < num_mappers; i++)
+  {
+    thread *mapper = new thread(&count_strings);
+    mappers.push_back(mapper);
   }
 
-  for(int i=0;i<nMapper;i++){
+  //create reducer threads:
+  for (int i = 0; i < num_reducers; i++)
+  {
+    thread *reducer = new thread(&sum_counts);
+    reducers.push_back(reducer);
+  }
+
+  //wait for the termination of all mapper threads:
+  for (int i = 0; i < num_mappers; i++)
+  {
     mappers[i]->join();
   }
-  for(int i=0;i<nReducer;i++){
+
+  mappers_running = false;
+
+  //wait for the termination of all mapper threads:
+  for (int i = 0 ; i < num_reducers ; i++)
+  {
     reducers[i]->join();
   }
 
-  //cout << "end" << endl;
-  cout << "Total count of keyword: " << count_que.front() << endl;;
-  //cout<<count_keyword_lbl(temp1)<<endl;
+  cout << "There are " << count_queue.front() << " total instances of the string \"" << search_str << "\"." << endl;
+
   return 0;
 }
