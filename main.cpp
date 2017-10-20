@@ -116,16 +116,21 @@ void count_strings()
     }
     else break; //no more files
 
-    string material;
+    cout << "file is " << file_name << endl;
+
     ifstream file(file_name);
 
-    char* c = new char;
-    file.get(c,1);
+    if (file)
+      cout << "successfully opened file" << endl;
+
+    char c;
+    file.get(c);
 
     //read file in one character at a time:
-    while (*c != EOF)
+    while (c != EOF)
     {
-      if (*c == search_str[search_str_index])
+      cout << "read in char '" << c << "'" << endl;
+      if (c == search_str[search_str_index])
       {
         search_str_index++;
       }
@@ -135,7 +140,7 @@ void count_strings()
         count++;
         search_str_index = 0;
       }
-      file.get(c,1);
+      file.get(c);
     }
 
     file.close();
