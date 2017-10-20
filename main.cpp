@@ -39,6 +39,7 @@ int main()
 
   //num_mappers = file_queue.length;
 
+  cout << "creating mapper thread" << endl;
 
   //create mapper threads:
   for (int i = 0; i < num_mappers; i++)
@@ -47,13 +48,15 @@ int main()
     mappers.push_back(mapper);
   }
 
+  cout << "done, creating reducer threads" << endl;
   //create reducer threads:
   for (int i = 0; i < num_reducers; i++)
   {
     thread *reducer = new thread(&sum_counts);
     reducers.push_back(reducer);
-  }
+  };
 
+  cout << "done, waiting for mapper termination" << endl;
   //wait for the termination of all mapper threads:
   for (int i = 0; i < num_mappers; i++)
   {
@@ -61,6 +64,8 @@ int main()
   }
 
   mappers_running = false;
+
+  cout << "done, waiting for reducer termination" << endl;
 
   //wait for the termination of all mapper threads:
   for (int i = 0 ; i < num_reducers ; i++)
@@ -108,6 +113,7 @@ void count_strings()
 
   while(true)
   {
+    cout << "checking file queue" << endl;
     file_queue_mutex.lock();
     if (file_queue.size() > 0)
     {
@@ -115,21 +121,27 @@ void count_strings()
       file_queue.pop_front();
     }
     else break; //no more files
+    file_queue_mutex.unlock();
 
-    cout << "file is " << file_name << endl;
+    cout << endl << "file " << file_name << endl;
 
     ifstream file(file_name);
 
     if (file)
       cout << "successfully opened file" << endl;
+    else {
+      cout << "unable to open" << endl;
+      return;
+    }
+
 
     char c;
-    file.get(c);
 
     //read file in one character at a time:
-    while (c != EOF)
+    while (!file.eof())
     {
-      cout << "read in char '" << c << "'" << endl;
+      file.get(c);
+      //cout << "read in char '" << c << "'" << endl;
       if (c == search_str[search_str_index])
       {
         search_str_index++;
@@ -140,15 +152,20 @@ void count_strings()
         count++;
         search_str_index = 0;
       }
-      file.get(c);
     }
+
+    cout << "finished searching " << file_name << endl;
 
     file.close();
 
+    cout << "adding file to count queue" << endl;
+
     //add count to reducer queue:
     count_queue_mutex.lock();
+    cout << "mutex locked" << endl;
     count_queue.push_back(count);
     count_queue_mutex.unlock();
+    cout << "mutex unlocked" << endl;
   }
 }
 
