@@ -63,12 +63,14 @@ int main()
   for (int i = 0; i < num_mappers; i++)
   {
     mappers[i]->join();
+    delete mappers[i];
   }
 
   //There are no more mapper threads:
   mappers_running = false;
   //make sure that the producer threads realize that:
   count_queue_modified.notify_all();
+  cout << "notified reducers" << endl;
 
   cout << "done, waiting for reducer termination" << endl;
 
@@ -76,6 +78,7 @@ int main()
   for (int i = 0 ; i < num_reducers ; i++)
   {
     reducers[i]->join();
+    delete reducers[i];
   }
 
   cout << "There are " << count_queue.front() << " total instances of the string \"" << search_str << "\"." << endl;
@@ -109,6 +112,7 @@ void sum_counts()
       count_queue_lock.lock();
       count_queue.push_back(sum);
       count_queue_modified.notify_all();
+      cout << "notified reducers" << endl;
     }
   }
 }
@@ -185,6 +189,7 @@ void count_strings()
     count_queue_mutex.unlock();
     //notify reducer threads of update:
     count_queue_modified.notify_all();
+    cout << "notified reducers" << endl;
     cout << "mutex unlocked" << endl;
   }
   cout << "mapper thread done" << endl;
