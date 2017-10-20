@@ -108,6 +108,7 @@ void sum_counts()
 
       count_queue_lock.lock();
       count_queue.push_back(sum);
+      count_queue_modified.notify_all();
     }
   }
 }
@@ -116,7 +117,7 @@ void count_strings()
 {
   string file_name;
   streambuf* read_buffer;
-  int count;
+  int count = 0;
   int search_str_index = 0;
 
   while(true)
@@ -128,7 +129,11 @@ void count_strings()
       file_name=file_queue.front();
       file_queue.pop_front();
     }
-    else break; //no more files    file.get(c);
+    else
+    {
+      file_queue_mutex.unlock();
+      break;
+    }; //no more files    file.get(c);
 
     file_queue_mutex.unlock();
 
@@ -136,8 +141,8 @@ void count_strings()
 
     ifstream file(file_name);
 
-    if (file)
-      cout << "successfully opened file" << endl;
+    if (file) {}
+      //cout << "successfully opened file" << endl;
     else {
       cout << "unable to open" << endl;
       return;
@@ -176,9 +181,11 @@ void count_strings()
     cout << "mutex locked" << endl;
     count_queue.push_back(count);
     count_queue_mutex.unlock();
+    //notify reducer threads of update:
     count_queue_modified.notify_all();
     cout << "mutex unlocked" << endl;
   }
+  cout << "mapper thread done" << endl;
 }
 
 void fill_file_queue(ifstream &file, deque<string> &file_queue)
