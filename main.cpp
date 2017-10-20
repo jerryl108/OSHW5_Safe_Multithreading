@@ -5,6 +5,7 @@
 #include <deque>
 #include <string>
 #include <mutex>
+#include <condition_variable>
 using namespace std;
 
 deque<string> file_queue;
@@ -14,6 +15,7 @@ int num_reducers;
 string search_str;
 mutex file_queue_mutex;
 mutex count_queue_mutex;
+condition_variable count_queue_modified;
 bool mappers_running = true;
 
 void count_strings();
@@ -63,7 +65,10 @@ int main()
     mappers[i]->join();
   }
 
+  //There are no more mapper threads:
   mappers_running = false;
+  //make sure that the producer threads realize that:
+  count_queue_modified.notify_all();
 
   cout << "done, waiting for reducer termination" << endl;
 
@@ -80,11 +85,15 @@ int main()
 
 void sum_counts()
 {
-  //cout << "AAA" << endl;
+  //cout << "AAA" << endl;condition
+  unique_lock<mutex> count_queue_lock(count_queue_mutex);
+
   int count1, count2, sum;
   while (mappers_running)
   {
-    count_queue_mutex.lock();
+    cout << "reducer waiting on notification" << endl;
+    count_queue_modified.wait(count_queue_lock);
+    cout << "reducer received notification" << endl;
     if(count_queue.size() > 1)
     {
       count1 = count_queue.front();
@@ -92,15 +101,14 @@ void sum_counts()
 
       count2 = count_queue.front();
       count_queue.pop_front();
-
-      count_queue_mutex.unlock();
+      cout << "adding " << count1 << " and " << count2 << endl;
+      count_queue_lock.unlock();
 
       sum = count1 + count2;
 
-      count_queue_mutex.lock();
+      count_queue_lock.lock();
       count_queue.push_back(sum);
     }
-    count_queue_mutex.unlock();
   }
 }
 
@@ -120,7 +128,8 @@ void count_strings()
       file_name=file_queue.front();
       file_queue.pop_front();
     }
-    else break; //no more files
+    else break; //no more files    file.get(c);
+
     file_queue_mutex.unlock();
 
     cout << endl << "file " << file_name << endl;
@@ -156,15 +165,18 @@ void count_strings()
 
     cout << "finished searching " << file_name << endl;
 
+    cout << "count is " << count << endl;
+
     file.close();
 
-    cout << "adding file to count queue" << endl;
+    cout << "adding sum to count queue" << endl;
 
     //add count to reducer queue:
     count_queue_mutex.lock();
     cout << "mutex locked" << endl;
     count_queue.push_back(count);
     count_queue_mutex.unlock();
+    count_queue_modified.notify_all();
     cout << "mutex unlocked" << endl;
   }
 }
