@@ -119,16 +119,13 @@ void count_strings()
     string material;
     ifstream file(file_name);
 
-    if (file)
-      streambuf* read_buffer = file.rdbuf();
-    else
+    char* c = new char;
+    file.get(c,1);
 
     //read file in one character at a time:
-    while (read_buffer->sgetc() != EOF)
+    while (*c != EOF)
     {
-      char c = read_buffer->sbumpc();
-
-      if (c==search_str[search_str_index])
+      if (*c == search_str[search_str_index])
       {
         search_str_index++;
       }
@@ -138,6 +135,7 @@ void count_strings()
         count++;
         search_str_index = 0;
       }
+      file.get(c,1);
     }
 
     file.close();
