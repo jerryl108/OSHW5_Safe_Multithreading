@@ -117,11 +117,13 @@ void count_strings()
 {
   string file_name;
   streambuf* read_buffer;
-  int count = 0;
-  int search_str_index = 0;
+  int count;
+  int search_str_index;
 
   while(true)
   {
+    count = 0;
+    search_str_index = 0;
     cout << "checking file queue" << endl;
     file_queue_mutex.lock();
     if (file_queue.size() > 0)
@@ -132,8 +134,8 @@ void count_strings()
     else
     {
       file_queue_mutex.unlock();
-      break;
-    }; //no more files    file.get(c);
+      break; //no more files
+    };
 
     file_queue_mutex.unlock();
 
