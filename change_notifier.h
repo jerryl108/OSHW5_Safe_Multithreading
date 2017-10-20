@@ -43,7 +43,7 @@ public:
 class change_notifier
 {
 private:
-  list<notification_subscriber&> subscriber_list;
+  list<notification_subscriber> subscriber_list;
   void store_iterator(sub_iter i);
 public:
   notification_subscriber subscribe(unique_lock<mutex>& unique_l);
