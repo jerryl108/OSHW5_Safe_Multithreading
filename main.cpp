@@ -10,8 +10,8 @@ using namespace std;
 
 deque<string> file_queue;
 deque<int> count_queue;
-int num_mappers;
-int num_reducers;
+int num_mappers = -1;
+int num_reducers = -1;
 string search_str;
 mutex file_queue_mutex;
 mutex count_queue_mutex;
@@ -36,8 +36,22 @@ int main()
   cin >> search_str;
   cout << "Enter the number of mapper threads to use: ";
   cin >> num_mappers;
+  while (num_mappers <= 0)
+  {
+    cin.clear();
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cout << "Please enter a non-zero number of mappers: ";
+    cin >> num_mappers;
+  }
   cout << "Enter the number of reducer threads to use: ";
   cin >> num_reducers;
+  while (num_reducers <= 0)
+  {
+    cin.clear();
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cout << "Please enter a non-zero number of reducers: ";
+    cin >> num_reducers;
+  }
 
   //num_mappers = file_queue.length;
 
