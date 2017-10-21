@@ -25,7 +25,7 @@ void change_notifier::notify_all()
 
 void notification_subscriber::store_iterator(sub_iter i)
 {
-  it = i;
+  it = &i;
 }
 
 change_notifier::~change_notifier()
@@ -60,7 +60,7 @@ void notification_subscriber::notify_change()
 //should be called at end of subscribing function (instead of destructor):
 void notification_subscriber::close()
 {
-  parent.subscriber_list.erase(it);
+  parent.erase(*it);
 }
 
 #endif

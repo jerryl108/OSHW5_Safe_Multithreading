@@ -16,29 +16,7 @@
 
 using namespace std;
 
-class change_notifier;
-
-class notification_subscriber
-{
-private:
-  condition_variable cv;
-  int change_count = 0;
-  unique_lock<mutex>& unique_l;
-  bool waiting_on_cv = false;
-  sub_iter it;
-  change_notifier& parent;
-public:
-  void wait();
-  void notify_change();
-  //note: please ONLY use the change_notifier::subscribe function
-  //and not this constructor; this class is not meant to be used alone:
-  notification_subscriber() = delete;
-  notification_subscriber(notification_subscriber&) = delete;
-  notification_subscriber(unique_lock<mutex>& ul, change_notifier& p) :
-    unique_l(ul), parent(p) {}
-  void close();
-  void store_iterator(sub_iter i);
-};
+class notification_subscriber;
 
 class change_notifier
 {
@@ -48,8 +26,50 @@ private:
 public:
   notification_subscriber subscribe(unique_lock<mutex>& unique_l);
   void notify_all();
-  friend void notification_subscriber::close();
+  void erase(sub_iter it)
+  {
+    subscriber_list.erase(it);
+  }
   ~change_notifier();
+};
+
+class notification_subscriber
+{
+private:
+  condition_variable cv;
+  int change_count = 0;
+  unique_lock<mutex>&& unique_l;
+  bool waiting_on_cv = false;
+  sub_iter* it;
+  change_notifier&& parent;
+public:
+  //note: please ONLY use the change_notifier::subscribe function
+  //and not this constructor; this class is not meant to be used alone:
+  notification_subscriber() = delete;
+  notification_subscriber(const notification_subscriber& rhs)
+  {
+    change_count = rhs.change_count;
+    unique_l = move(rhs.unique_l);
+    waiting_on_cv = rhs.waiting_on_cv;
+    it = rhs.it;
+    parent = rhs.parent;
+  }
+  notification_subscriber& operator=(const notification_subscriber& rhs)
+  {
+    change_count = rhs.change_count;
+    unique_l = move(rhs.unique_l);
+    waiting_on_cv = rhs.waiting_on_cv;
+    it = rhs.it;
+    parent = rhs.parent;
+  }
+  notification_subscriber(unique_lock<mutex>& ul, change_notifier& p) :
+    unique_l(move(ul)), parent(move(p))
+  {
+  }
+  void wait();
+  void notify_change();
+  void close();
+  void store_iterator(sub_iter i);
 };
 
 #endif
