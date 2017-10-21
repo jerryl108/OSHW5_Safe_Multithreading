@@ -37,7 +37,7 @@ void notification_subscriber::wait()
 {
   if (change_count == 0)
   {
-    cv.wait(unique_l);
+    cv.wait(*unique_l);
   }
   else
   {
@@ -60,7 +60,7 @@ void notification_subscriber::notify_change()
 //should be called at end of subscribing function (instead of destructor):
 void notification_subscriber::close()
 {
-  parent.erase(*it);
+  parent->erase(*it);
 }
 
 #endif

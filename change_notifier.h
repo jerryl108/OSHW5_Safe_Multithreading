@@ -38,10 +38,10 @@ class notification_subscriber
 private:
   condition_variable cv;
   int change_count = 0;
-  unique_lock<mutex>&& unique_l;
+  unique_lock<mutex>* unique_l;
   bool waiting_on_cv = false;
   sub_iter* it;
-  change_notifier&& parent;
+  change_notifier* parent;
 public:
   //note: please ONLY use the change_notifier::subscribe function
   //and not this constructor; this class is not meant to be used alone:
@@ -63,11 +63,13 @@ public:
     parent = rhs.parent;
   }
   notification_subscriber(unique_lock<mutex>& ul, change_notifier& p) :
-    unique_l(move(ul)), parent(move(p))
-  {
-  }
+    unique_l(&ul), parent(&p) {}
+  //should only be called when erased from parent's subscriber_list by
+  //the close() function:
   void wait();
   void notify_change();
+  //Please call this at the end of the subscribing function instead of
+  //letting the default destructor be called:
   void close();
   void store_iterator(sub_iter i);
 };
