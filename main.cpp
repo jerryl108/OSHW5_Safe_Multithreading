@@ -6,6 +6,7 @@
 #include <string>
 #include <mutex>
 #include <condition_variable>
+#include "change_notifier.h"
 using namespace std;
 
 deque<string> file_queue;
@@ -13,9 +14,7 @@ deque<int> count_queue;
 string search_str;
 mutex file_queue_mutex;
 mutex count_queue_mutex;
-condition_variable count_queue_modified;
-//array of bools to determine if each reducer waits on count_queue_modified:
-bool* should_cv_wait;
+change_notifier count_queue_modified;
 bool mappers_running = true;
 int num_reducers_running;
 int num_reducers;
@@ -23,7 +22,6 @@ int num_mappers;
 
 void count_strings();
 void sum_counts(int reducer_index);
-void reducers_skip_one_wait();
 void get_user_input();
 
 int main()
@@ -59,10 +57,8 @@ int main()
 
   cout << "done, creating reducer threads" << endl;
   //create reducer threads:
-  should_cv_wait = new bool[num_reducers];
   for (int i = 0; i < num_reducers; i++)
   {
-    should_cv_wait[i] = true;
     thread *reducer = new thread(&sum_counts,i);
     reducers.push_back(reducer);
   };
@@ -79,7 +75,6 @@ int main()
   //There are no more mapper threads:
   mappers_running = false;
   //make damned sure that the producer threads realize that:
-  reducers_skip_one_wait();
   count_queue_modified.notify_all();
   cout << "notified all reducers" << endl;
 
@@ -91,8 +86,6 @@ int main()
     delete reducers[i];
   }
 
-  delete [] should_cv_wait;
-
   cout << "There are " << count_queue.front() << " total instances of the string \"" << search_str << "\"." << endl;
 
   return 0;
@@ -101,19 +94,15 @@ int main()
 void sum_counts(int reducer_index)
 {
   //cout << reducer_index << ": AAA" << endl;condition
-  unique_lock<mutex> count_queue_lock(count_queue_mutex);
+  unique_lock<mutex> lck(count_queue_mutex);
+  notification_subscriber queue_changed = count_queue_modified.subscribe(lck);
+
+  queue_changed.wait();
+
 
   int count1, count2, sum;
   while (mappers_running)
   {
-    if (should_cv_wait[reducer_index])
-    {
-      cout << reducer_index << ": reducer waiting on notification" << endl;
-      count_queue_modified.wait(count_queue_lock);
-      cout << reducer_index << ": reducer received notification" << endl;
-    }
-    else should_cv_wait[reducer_index] = true;
-
     if(count_queue.size() > 1)
     {
       count1 = count_queue.front();
@@ -122,19 +111,20 @@ void sum_counts(int reducer_index)
       count2 = count_queue.front();
       count_queue.pop_front();
       cout << reducer_index << ": adding " << count1 << " and " << count2 << endl;
-      count_queue_lock.unlock();
+      lck.unlock();
 
       sum = count1 + count2;
 
-      count_queue_lock.lock();
+      lck.lock();
       count_queue.push_back(sum);
-      reducers_skip_one_wait();
       count_queue_modified.notify_all();
       cout << reducer_index << ": notified reducers" << endl;
     }
   }
   num_reducers_running--;
   cout << reducer_index << ": reducer terminating, num_reducers_running = " << num_reducers_running << endl;
+  queue_changed.close();
+  cout << reducer_index << ": done terminating" << endl;
 }
 
 void count_strings()
@@ -208,7 +198,6 @@ void count_strings()
     count_queue.push_back(count);
     count_queue_mutex.unlock();
     //notify reducer threads of update:
-    reducers_skip_one_wait();
     count_queue_modified.notify_all();
     cout << "notified reducers" << endl;
     cout << "mutex unlocked" << endl;
@@ -236,12 +225,5 @@ void get_user_input()
     cin.ignore(numeric_limits<streamsize>::max(), '\n');
     cout << "Please enter a non-zero number of reducers: ";
     cin >> num_reducers;
-  }
-}
-void reducers_skip_one_wait()
-{
-  for (int i = 0; i < num_reducers; i++)
-  {
-    should_cv_wait[i] = false;
   }
 }

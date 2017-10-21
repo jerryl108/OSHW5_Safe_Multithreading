@@ -42,7 +42,9 @@ void notification_subscriber::wait()
   else
   {
     //no need to wait; a change has happened:
+    unique_l->unlock();
     change_count--;
+    unique_l->lock();
   }
 }
 
@@ -57,7 +59,7 @@ void notification_subscriber::notify_change()
     change_count++;
   }
 }
-//should be called at end of subscribing function (instead of destructor):
+//should be called at end of subscribing function (instead of default destructor):
 void notification_subscriber::close()
 {
   parent->erase(*it);
