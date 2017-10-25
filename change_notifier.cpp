@@ -30,7 +30,7 @@ void change_notifier::notify_all()
   for (sub_iter it = subscriber_list.begin(); it != subscriber_list.end(); it++)
   {
     cout << "loop iteration" << endl;
-    cout << "notify_all waiting_on_cv = " << (*it).waiting_on_cv << endl;
+    cout << "notify_all *waiting_on_cv = " << *((*it).waiting_on_cv) << endl;
     cout << "notify_all creation_time = " << (*it).creation_time << endl;
     (*it).notify_change();
   }
@@ -39,10 +39,10 @@ void change_notifier::notify_all()
 
 void change_subscriber::store_iterator(sub_iter i)
 {
-  cout << "store_it waiting_on_cv= " << waiting_on_cv << endl;
+  cout << "store_it *waiting_on_cv= " << *waiting_on_cv << endl;
   cout << "store_it creation_time= " << creation_time << endl;
   it = i;
-  cout << "after store_it waiting_on_cv= " << waiting_on_cv << endl;
+  cout << "after store_it *waiting_on_cv= " << *waiting_on_cv << endl;
   cout << "store_it creation_time= " << creation_time << endl;
 }
 
@@ -58,11 +58,11 @@ void change_subscriber::wait()
   if (change_count == 0)
   {
     cout << "waiting on cv" << endl;
-    waiting_on_cv = true;
-    cout <<"wait waiting_on_cv = " << waiting_on_cv << endl;
+    *waiting_on_cv = true;
+    cout <<"wait *waiting_on_cv = " << *waiting_on_cv << endl;
     cout <<"wait creation_time = " << creation_time << endl;
-    cv.wait(*unique_l);
-    waiting_on_cv = false;
+    cv->wait(*unique_l);
+    *waiting_on_cv = false;
   }
   else
   {
@@ -81,11 +81,11 @@ void change_subscriber::notify_change()
 {
   cout << "notifying of change" << endl;
   cout << "creation_time = " << creation_time << endl;
-  cout << "waiting_on_cv = " << waiting_on_cv << endl;
-  if (waiting_on_cv)
+  cout << "*waiting_on_cv = " << *waiting_on_cv << endl;
+  if (*waiting_on_cv)
   {
     cout << "is waiting" << endl;
-    cv.notify_one();
+    cv->notify_one();
   }
   else
   {
@@ -97,6 +97,8 @@ void change_subscriber::notify_change()
 void change_subscriber::close()
 {
   parent->erase(it);
+  delete cv;
+  delete waiting_on_cv;
 }
 
 #endif
