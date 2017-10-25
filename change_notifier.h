@@ -1,11 +1,16 @@
 #ifndef CHANGE_NOTIFIER_H
 #define CHANGE_NOTIFIER_H
 
-#define sub_iter list<notification_subscriber>::iterator
-#include "change_notifier.h"
+#define sub_iter list<change_subscriber>::iterator
 #include <list>
 #include <condition_variable>
 #include <mutex>
+
+#include <iostream>
+#include <cassert>
+#include <ctime>
+
+
 
 /**
  * The change_notifier class is basically a condition_variable that
@@ -16,15 +21,15 @@
 
 using namespace std;
 
-class notification_subscriber;
+class change_subscriber;
 
 class change_notifier
 {
 private:
-  list<notification_subscriber> subscriber_list;
+  list<change_subscriber> subscriber_list;
   void store_iterator(sub_iter i);
 public:
-  notification_subscriber subscribe(unique_lock<mutex>& unique_l);
+  change_subscriber subscribe(unique_lock<mutex>& unique_l);
   void notify_all();
   void erase(sub_iter it)
   {
@@ -33,38 +38,31 @@ public:
   ~change_notifier();
 };
 
-class notification_subscriber
+class change_subscriber
 {
 private:
   condition_variable cv;
-  int change_count = 0;
-  unique_lock<mutex>* unique_l;
-  bool waiting_on_cv = false;
-  sub_iter* it;
+  sub_iter it;
   change_notifier* parent;
+  int change_count;
 public:
+  unique_lock<mutex>* const unique_l;
+  bool waiting_on_cv;
+  clock_t creation_time;
+
   //note: please ONLY use the change_notifier::subscribe function
   //and not this constructor; this class is not meant to be used alone:
-  notification_subscriber() = delete;
-  notification_subscriber(const notification_subscriber& rhs)
+  change_subscriber() = delete;
+  change_subscriber(const change_subscriber& rhs) :
+    change_count(rhs.change_count), unique_l(rhs.unique_l),
+    waiting_on_cv(rhs.waiting_on_cv), parent(rhs.parent), it(rhs.it), creation_time(clock())
   {
-    change_count = rhs.change_count;
-    unique_l = move(rhs.unique_l);
-    waiting_on_cv = rhs.waiting_on_cv;
-    it = rhs.it;
-    parent = rhs.parent;
+    cout << "copy constructor" << endl;
   }
-  notification_subscriber& operator=(const notification_subscriber& rhs)
-  {
-    change_count = rhs.change_count;
-    unique_l = move(rhs.unique_l);
-    waiting_on_cv = rhs.waiting_on_cv;
-    it = rhs.it;
-    parent = rhs.parent;
-  }
-  notification_subscriber(unique_lock<mutex>& ul, change_notifier& p) :
-    unique_l(&ul), parent(&p) {}
-  //should only be called when erased from parent's subscriber_list by
+  change_subscriber& operator=(const change_subscriber& rhs) = delete;
+  change_subscriber(unique_lock<mutex>& ul, change_notifier* p) :
+    unique_l(&ul), parent(p), change_count(0), waiting_on_cv(false), creation_time(clock()) {}
+  //should only be called when erased from parent's subscriber_listlo by
   //the close() function:
   void wait();
   void notify_change();

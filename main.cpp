@@ -5,8 +5,9 @@
 #include <deque>
 #include <string>
 #include <mutex>
-#include <condition_variable>
 #include "change_notifier.h"
+#include <cassert>
+
 using namespace std;
 
 deque<string> file_queue;
@@ -79,7 +80,7 @@ int main()
   cout << "notified all reducers" << endl;
 
 
-  //wait for the termination of all mapper threads:
+  //wait for the termination of all reducer threads:
   for (int i = 0 ; i < num_reducers ; i++)
   {
     reducers[i]->join();
@@ -94,15 +95,18 @@ int main()
 void sum_counts(int reducer_index)
 {
   //cout << reducer_index << ": AAA" << endl;condition
-  unique_lock<mutex> lck(count_queue_mutex);
-  notification_subscriber queue_changed = count_queue_modified.subscribe(lck);
-
-  queue_changed.wait();
-
 
   int count1, count2, sum;
+  unique_lock<mutex> lck(count_queue_mutex);
+  change_subscriber queue_changed = count_queue_modified.subscribe(lck);
+  assert(queue_changed.unique_l == &lck);
+  //cout << "after_subscribing, cc= " << queue_changed.change_count << endl;
+
   while (mappers_running)
   {
+    cout << "waiting" << endl;
+    queue_changed.wait();
+    cout << "wait finished" << endl;
     if(count_queue.size() > 1)
     {
       count1 = count_queue.front();
