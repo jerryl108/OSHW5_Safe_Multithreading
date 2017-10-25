@@ -12,10 +12,13 @@
 change_subscriber change_notifier::subscribe(unique_lock<mutex>& unique_l)
 {
   change_subscriber sub = change_subscriber(unique_l,this);
+  cout << "subscriber created" << endl;
   subscriber_list.push_back(sub);
+  cout << "subscriber pushed to list" << endl;
   sub_iter it = --subscriber_list.end();
   //make sure another subscriber added by another thread hasn't just interfered:
   while ((*it).unique_l != sub.unique_l) it--;
+  cout << "iterator created" << endl;
   (*it).store_iterator(it);
   //cout << "list cc = " << subscriber_list.back().change_count;
   return *it;
@@ -27,8 +30,8 @@ void change_notifier::notify_all()
   for (sub_iter it = subscriber_list.begin(); it != subscriber_list.end(); it++)
   {
     cout << "loop iteration" << endl;
-    cout << "notify_all waiting_on_cv = " << (*it).waiting_on_cv;
-    cout << "notify_all creation_time = " << (*it).creation_time;
+    cout << "notify_all waiting_on_cv = " << (*it).waiting_on_cv << endl;
+    cout << "notify_all creation_time = " << (*it).creation_time << endl;
     (*it).notify_change();
   }
   cout << "done notifying" << endl;
@@ -77,6 +80,7 @@ void change_subscriber::wait()
 void change_subscriber::notify_change()
 {
   cout << "notifying of change" << endl;
+  cout << "creation_time = " << creation_time << endl;
   cout << "waiting_on_cv = " << waiting_on_cv << endl;
   if (waiting_on_cv)
   {

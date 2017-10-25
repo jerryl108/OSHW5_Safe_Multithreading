@@ -57,7 +57,7 @@ public:
     change_count(rhs.change_count), unique_l(rhs.unique_l),
     waiting_on_cv(rhs.waiting_on_cv), parent(rhs.parent), it(rhs.it), creation_time(clock())
   {
-    cout << "copy constructor" << endl;
+    cout << "copy constructor creation_time = " << creation_time << endl;
   }
   change_subscriber& operator=(const change_subscriber& rhs) = delete;
   change_subscriber(unique_lock<mutex>& ul, change_notifier* p) :
