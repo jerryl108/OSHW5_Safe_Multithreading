@@ -6,7 +6,6 @@
 #include <string>
 #include <mutex>
 #include "change_notifier.h"
-#include <cassert>
 
 using namespace std;
 
@@ -45,7 +44,7 @@ int main()
   get_user_input();
   //num_mappers = file_queue.length;
 
-  cout << "creating mapper thread" << endl;
+  //cout << "creating mapper thread" << endl;
 
   //create mapper threads:
   for (int i = 0; i < num_mappers; i++)
@@ -56,7 +55,7 @@ int main()
 
   num_reducers_running = num_reducers;
 
-  cout << "done, creating reducer threads" << endl;
+  //cout << "done, creating reducer threads" << endl;
   //create reducer threads:
   for (int i = 0; i < num_reducers; i++)
   {
@@ -64,14 +63,14 @@ int main()
     reducers.push_back(reducer);
   };
 
-  cout << "done, waiting for mapper termination" << endl;
+  //cout << "done, waiting for mapper termination" << endl;
   //wait for the termination of all mapper threads:
   for (int i = 0; i < num_mappers; i++)
   {
     mappers[i]->join();
     delete mappers[i];
   }
-  cout << "done, waiting for reducer termination" << endl;
+  //cout << "done, waiting for reducer termination" << endl;
 
   //There are no more mapper threads:
   mappers_running = false;
@@ -82,7 +81,7 @@ int main()
     count_queue_modified.notify_all();
     this_thread::yield();
   }
-  cout << "notified all reducers" << endl;
+  //cout << "notified all reducers" << endl;
   /**
   * note: This loop only runs beyond 1 iteration in a few edge cases
   * when the change_subscriber condition_variable(s) refuse(s) to notify
@@ -92,7 +91,6 @@ int main()
   //wait for the termination of all reducer threads:
   for (int i = 0 ; i < num_reducers ; i++)
   {
-    cout << "reducer " << i << " join" << endl;
     reducers[i]->join();
     delete reducers[i];
   }
@@ -104,20 +102,14 @@ int main()
 
 void sum_counts(int reducer_index)
 {
-  //cout << reducer_index << ": AAA" << endl;condition
-
   int count1, count2, sum;
   unique_lock<mutex> lck(count_queue_mutex);
   change_subscriber queue_changed;
   queue_changed.subscribe(count_queue_modified,lck);
-  //cout << "after_subscribing, cc= " << queue_changed.change_count << endl;
 
   while (mappers_running)
   {
-    cout << "mappers_running = " << mappers_running << endl;
-    cout << "waiting" << endl;
     queue_changed.wait();
-    cout << "wait finished" << endl;
     if(count_queue.size() > 1)
     {
       count1 = count_queue.front();
@@ -125,7 +117,7 @@ void sum_counts(int reducer_index)
 
       count2 = count_queue.front();
       count_queue.pop_front();
-      cout << reducer_index << ": adding " << count1 << " and " << count2 << endl;
+      //cout << reducer_index << ": adding " << count1 << " and " << count2 << endl;
       lck.unlock();
 
       sum = count1 + count2;
@@ -133,12 +125,12 @@ void sum_counts(int reducer_index)
       lck.lock();
       count_queue.push_back(sum);
       count_queue_modified.notify_one();
-      cout << reducer_index << ": notified reducers" << endl;
+      //cout << reducer_index << ": notified reducers" << endl;
     }
   }
   num_reducers_running--;
-  cout << reducer_index << ": reducer terminating, num_reducers_running = " << num_reducers_running << endl;
-  cout << reducer_index << ": done terminating" << endl;
+  //cout << reducer_index << ": reducer terminating, num_reducers_running = " << num_reducers_running << endl;
+  //cout << reducer_index << ": done terminating" << endl;
 }
 
 void count_strings()
@@ -152,7 +144,7 @@ void count_strings()
   {
     count = 0;
     search_str_index = 0;
-    cout << "checking file queue" << endl;
+    //cout << "checking file queue" << endl;
     file_queue_mutex.lock();
     if (file_queue.size() > 0)
     {
@@ -167,7 +159,7 @@ void count_strings()
 
     file_queue_mutex.unlock();
 
-    cout << endl << "file " << file_name << endl;
+    //cout << endl << "file " << file_name << endl;
 
     ifstream file(file_name);
 
@@ -198,25 +190,23 @@ void count_strings()
       }
     }
 
-    cout << "finished searching " << file_name << endl;
+    //cout << "finished searching " << file_name << endl;
 
-    cout << "count is " << count << endl;
+    //cout << "count is " << count << endl;
 
     file.close();
 
-    cout << "adding sum to count queue" << endl;
+    //cout << "adding sum to count queue" << endl;
 
     //add count to reducer queue:
     count_queue_mutex.lock();
-    cout << "mutex locked" << endl;
     count_queue.push_back(count);
     count_queue_mutex.unlock();
     //notify reducer threads of update:
     count_queue_modified.notify_all();
-    cout << "notified reducers" << endl;
-    cout << "mutex unlocked" << endl;
+    //cout << "notified reducers" << endl;
   }
-  cout << "mapper thread done" << endl;
+  //cout << "mapper thread done" << endl;
 }
 void get_user_input()
 {

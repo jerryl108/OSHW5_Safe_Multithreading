@@ -15,28 +15,25 @@ void change_notifier::add_subscriber(change_subscriber& sub)
 {
   subscriber_list_mtx.lock();
   subscriber_list.push_back(&sub);
-  cout << "subscriber pushed to list" << endl;
+  //cout << "subscriber pushed to list" << endl;
   sub_iter it = --subscriber_list.end();
   subscriber_list_mtx.unlock();
-  cout << "iterator created" << endl;
+  //cout << "iterator created" << endl;
   (*it)->store_iterator(it);
-  //cout << "list cc = " << subscriber_list.back().num_globally_notified_changes;
 }
 
 void change_notifier::notify_all()
 {
   //This function handles changes that all subscribers should be notified of:
-  cout << "notify_all " << subscriber_list.size() << " subscribers" << endl;
+  //cout << "notify_all " << subscriber_list.size() << " subscribers" << endl;
   subscriber_list_mtx.lock();
   for (sub_iter it = subscriber_list.begin(); it != subscriber_list.end(); it++)
   {
-    cout << "loop iteration" << endl;
-    cout << "notify_all waiting_on_cv = " << (*it)->waiting_on_cv << endl;
-    cout << "notify_all creation_time = " << (*it)->creation_time << endl;
+    //cout << "notify_all creation_time = " << (*it)->creation_time << endl;
     (*it)->notify_change();
   }
   subscriber_list_mtx.unlock();
-  cout << "done notifying" << endl;
+  //cout << "done notifying" << endl;
 }
 
 void change_notifier::notify_one()
@@ -65,8 +62,8 @@ void change_notifier::notify_one()
 
 void change_notifier::notify(int num_changes)
 {
-  //This function notifies of changes that only one subscriber
-  // needs to be be notified of:
+  //This function notifies of multiple changes that only one subscriber
+  // (each) needs to be be notified of:
 
   unhandled_changes_mtx.lock();
   subscriber_list_mtx.lock();
@@ -96,7 +93,7 @@ void change_notifier::notify(int num_changes)
 void change_notifier::erase(sub_iter it)
 {
   subscriber_list_mtx.lock();
-  cout << "erasing subscriber from list" << endl;
+  //cout << "erasing subscriber from list" << endl;
   subscriber_list.erase(it);
   subscriber_list_mtx.unlock();
 }
@@ -115,11 +112,8 @@ void change_subscriber::subscribe(change_notifier& p, unique_lock<mutex>& lck)
 
 void change_subscriber::store_iterator(sub_iter i)
 {
-  cout << "store_it waiting_on_cv= " << waiting_on_cv << endl;
-  cout << "store_it creation_time= " << creation_time << endl;
+  //cout << "store_it creation_time= " << creation_time << endl;
   it = i;
-  cout << "after store_it waiting_on_cv= " << waiting_on_cv << endl;
-  cout << "store_it creation_time= " << creation_time << endl;
 }
 
 bool change_subscriber::unfreeze()
@@ -138,25 +132,24 @@ bool change_subscriber::unfreeze()
 void change_subscriber::notify_change()
 {
   //This function makes sure a globally notified change is handled:
-  cout << "notifying of change" << endl;
-  cout << "creation_time = " << creation_time << endl;
-  cout << "waiting_on_cv = " << waiting_on_cv << endl;
+  //cout << "notifying of change" << endl;
+  //cout << "creation_time = " << creation_time << endl;
+  //cout << "waiting_on_cv = " << waiting_on_cv << endl;
   if (waiting_on_cv)
   {
-    cout << "is waiting" << endl;
+    //cout << "is waiting" << endl;
     cv.notify_one();
   }
   else
   {
     num_globally_notified_changes++;
   }
-  cout << "notified" << endl;
+  //cout << "notified" << endl;
 }
 
 
 void change_subscriber::wait()
 {
-  cout << "change_subscriber wait, cc=" << num_globally_notified_changes << endl;
   if (num_globally_notified_changes == 0)
   {
     parent->unhandled_changes_mtx.lock();
@@ -171,10 +164,8 @@ void change_subscriber::wait()
     {
       parent->num_waiting++;
       parent->unhandled_changes_mtx.unlock();
-      cout << "waiting on cv" << endl;
+      //cout << "waiting on cv" << endl;
       waiting_on_cv = true;
-      cout <<"wait waiting_on_cv = " << waiting_on_cv << endl;
-      cout <<"wait creation_time = " << creation_time << endl;
       cv.wait(*unique_l);
       parent->num_waiting--;
       waiting_on_cv = false;
@@ -182,14 +173,14 @@ void change_subscriber::wait()
   }
   else
   {
-    cout << "num_globally_notified_changes = " << num_globally_notified_changes << endl;
+    //cout << "num_globally_notified_changes = " << num_globally_notified_changes << endl;
     //no need to wait; a change has happened:
     unique_l->unlock();
-    cout << "unlocked unique_l" << endl;
+    //cout << "unlocked unique_l" << endl;
     num_globally_notified_changes--;
-    cout << "decremented num_globally_notified_changes" << endl;
+    //cout << "decremented num_globally_notified_changes" << endl;
     unique_l->lock();
-    cout << "re-locked unique_l" << endl;
+    //cout << "re-locked unique_l" << endl;
   }
 }
 

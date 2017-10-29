@@ -7,7 +7,6 @@
 #include <mutex>
 
 #include <iostream>
-#include <cassert>
 #include <ctime>
 
 
