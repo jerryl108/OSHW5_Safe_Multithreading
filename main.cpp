@@ -29,7 +29,7 @@ void sum_counts(int reducer_index);
 void get_user_input();
 void read_config_file();
 void fill_file_queue();
-bool equals(char a, char b);
+bool equal(char a, char b);
 char ASCII_equivalent_punctuation(int utf8_low_byte, int utf8_middle_byte);
 
 int main()
@@ -200,7 +200,7 @@ void count_string_ocurrences()
     {
       file.get(c);
       //cout << "read in char '" << c << "'" << endl;
-      if (c == search_str[search_str_index])
+      if (equal(c,search_str[search_str_index]))
       {
         //the next character of the search string has been found
         search_str_index++;
@@ -221,7 +221,7 @@ void count_string_ocurrences()
         ASCII_equiv = ASCII_equivalent_punctuation((int)(c3&0xFF),(int)(c2&0xFF));
         //the Unicode character could be the next character in the search string:
         //cout << "equiv = '" << ASCII_equiv << "'" << endl;
-        if (ASCII_equiv == search_str[search_str_index]) search_str_index++;
+        if (equal(ASCII_equiv,search_str[search_str_index])) search_str_index++;
       }
       else search_str_index = 0;
       //if entire search string found:
@@ -362,6 +362,19 @@ void read_config_file()
       if (!config_file.good())
         break;
     }
+    else if (option_name == "case_sensitive:")
+    {
+      string val;
+      config_file >> val;
+
+      if (!config_file.good())
+        break;
+
+      if (val == "false")
+        case_sensitive = false;
+      else if (val == "true")
+        case_sensitive = true;
+    }
   }
   config_file.close();
 }
@@ -404,7 +417,7 @@ void get_user_input()
   }
 }
 
-bool equals(char a, char b)
+bool equal(char a, char b)
 {
   if (case_sensitive)
   {

@@ -1,5 +1,6 @@
 # Example parameters (uncomment these or add your own):
 #
 num_mappers: 1
-search_string: 'Project Gutenberg'
+search_string: 'Project Gutenberg\'s'
+case_sensitive: false
 num_reducers: 1
