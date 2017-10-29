@@ -124,33 +124,15 @@ void change_subscriber::store_iterator(sub_iter i)
 
 bool change_subscriber::unfreeze()
 {
-<<<<<<< HEAD
-  cout << "change_subscriber wait, cc=" << num_globally_notified_changes << endl;
-  if (num_globally_notified_changes == 0)
-=======
   //This function notifies of singly-notified changes if waiting_on_cv:
   //(otherwise, they will automatically be notified of when wait() is called)
   if (waiting_on_cv)
->>>>>>> stash@{0}
   {
     cv.notify_one();
     return true;
   }
   else
-<<<<<<< HEAD
-  {
-    cout << "num_globally_notified_changes = " << num_globally_notified_changes << endl;
-    //no need to wait; a change has happened:
-    unique_l->unlock();
-    cout << "unlocked unique_l" << endl;
-    num_globally_notified_changes--;
-    cout << "decremented num_globally_notified_changes" << endl;
-    unique_l->lock();
-    cout << "re-locked unique_l" << endl;
-  }
-=======
     return false;
->>>>>>> stash@{0}
 }
 
 void change_subscriber::notify_change()

@@ -21,28 +21,7 @@
 
 using namespace std;
 
-class change_subscriber;
-
-class change_notifier
-{
-private:
-  list<change_subscriber*> subscriber_list;
-  void store_iterator(sub_iter i);
-  mutex subscriber_list_mtx;
-public:
-  change_subscriber subscribe(unique_lock<mutex>& unique_l);
-  void notify_all();
-  void erase(sub_iter it)
-  {
-    subscriber_list_mtx.lock();
-    cout << "erasing subscriber from list" << endl;
-    subscriber_list.erase(it);
-    subscriber_list_mtx.unlock();
-  }
-  void add_subscriber(change_subscriber& sub);
-  friend void change_subscriber::wait();
-  ~change_notifier();
-};
+class change_notifier;
 
 class change_subscriber
 {
@@ -66,11 +45,29 @@ public:
   void subscribe(change_notifier& p, unique_lock<mutex>& lck);
   void wait();
   void notify_change();
+  bool unfreeze();
   void store_iterator(sub_iter i);
-  ~change_subscriber()
-  {
-    parent->erase(it);
-  }
+  ~change_subscriber();
+};
+
+class change_notifier
+{
+private:
+  mutex unhandled_changes_mtx;
+  int num_unhandled_changes;
+  int num_waiting;
+  mutex subscriber_list_mtx;
+  list<change_subscriber*> subscriber_list;
+  void store_iterator(sub_iter i);
+public:
+  change_subscriber subscribe(unique_lock<mutex>& unique_l);
+  void notify_all();
+  void notify_one();
+  void notify(int num_changes);
+  void erase(sub_iter it);
+  void add_subscriber(change_subscriber& sub);
+  friend void change_subscriber::wait();
+  ~change_notifier();
 };
 
 #endif
