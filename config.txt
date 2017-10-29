@@ -1,0 +1,5 @@
+# Example parameters (must uncomment to use):
+#
+# num_mappers: 3
+# search_string: 'Gutenberg\'s The'
+# num_reducers: 3

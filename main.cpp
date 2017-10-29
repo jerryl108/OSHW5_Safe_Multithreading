@@ -23,6 +23,7 @@ int num_mappers;
 void count_strings();
 void sum_counts(int reducer_index);
 void get_user_input();
+void read_config_file();
 
 int main()
 {
@@ -33,14 +34,24 @@ int main()
   vector<thread*> reducers;
 
   //fill file queue:
-  ifstream index_file("files.dat");
-  string filename;
-  while(getline(index_file, filename))
+  try
   {
-    file_queue.push_back("data/"+filename);
+    ifstream index_file("files.dat");
+    string filename;
+    while(getline(index_file, filename))
+    {
+      if (filename.length() > 0 && filename[0] != '#')
+        file_queue.push_back("data/"+filename);
+    }
+    index_file.close();
   }
-  index_file.close();
+  catch (exception e)
+  {
+    cout << "cannot read input filenames from files.dat" << endl;
+    return -1;
+  }
 
+  read_config_file();
   get_user_input();
   //num_mappers = file_queue.length;
 
@@ -166,8 +177,8 @@ void count_strings()
     if (file) {}
       //cout << "successfully opened file" << endl;
     else {
-      cout << "unable to open" << endl;
-      return;
+      cout << "cannot open file " << file_name << endl;
+      continue;
     }
 
 
@@ -208,26 +219,120 @@ void count_strings()
   }
   //cout << "mapper thread done" << endl;
 }
+
+void read_config_file()
+{
+  ifstream config_file("config.txt");
+  if (!config_file) return;
+  string option_name;
+  while(!config_file.eof())
+  {
+    config_file >> option_name;
+    if (option_name.length() > 0 && option_name[0] == '#')
+    {
+      config_file.ignore(numeric_limits<streamsize>::max(), '\n');
+    }
+    else if (option_name == "search_string:")
+    {
+      config_file >> search_str;
+      //cout << "search_str " << search_str << endl;
+      if (!config_file.good())
+        break;
+      if (search_str.length() > 0)
+      {
+        if (search_str[0] != '\'')
+          break;
+        else if (search_str[search_str.length()-1] != '\'')
+        {
+          char c;
+          bool escape = false;
+          bool invalid = false;
+          while (config_file.good())
+          {
+            config_file.get(c);
+            if (c == '\'')
+            {
+              if (escape)
+              {
+                escape = false;
+                continue;
+              }
+              break;
+            }
+            else if (c == '\n')
+            {
+              search_str = "";
+              invalid = true;
+              break;
+            }
+            else if (c == '\\')
+            {
+              escape = true;
+              continue;
+            }
+            search_str += c;
+          }
+          if (!config_file.good() || invalid)
+          {
+            search_str = "";
+            break;
+          }
+          else
+          {
+            search_str = search_str.substr(1,search_str.length()-1);
+          }
+        }
+        else
+        {
+          search_str = search_str.substr(1,search_str.length()-2);
+        }
+      }
+    }
+    else if (option_name == "num_mappers:")
+    {
+      config_file >> num_mappers;
+      if (!config_file.good())
+        break;
+    }
+    else if (option_name == "num_reducers:")
+    {
+      config_file >> num_reducers;
+      if (!config_file.good())
+        break;
+    }
+  }
+  config_file.close();
+}
+
 void get_user_input()
 {
-  cout << "Enter the keyword/string to search for: " << endl;
-  cin >> search_str;
-  cout << "Enter the number of mapper threads to use: ";
-  cin >> num_mappers;
-  while (num_mappers <= 0)
+  if (search_str.length() == 0)
   {
-    cin.clear();
-    cin.ignore(numeric_limits<streamsize>::max(), '\n');
-    cout << "Please enter a non-zero number of mappers: ";
-    cin >> num_mappers;
+    cout << "Enter the keyword/string to search for: " << endl;
+    cin >> search_str;
   }
-  cout << "Enter the number of reducer threads to use: ";
-  cin >> num_reducers;
-  while (num_reducers <= 0)
+  if (num_mappers <= 0)
   {
-    cin.clear();
-    cin.ignore(numeric_limits<streamsize>::max(), '\n');
-    cout << "Please enter a non-zero number of reducers: ";
+    cout << "Enter the number of mapper threads to use: ";
+    cin >> num_mappers;
+    while (num_mappers <= 0)
+    {
+      cin.clear();
+      cin.ignore(numeric_limits<streamsize>::max(), '\n');
+      cout << "Please enter a non-zero number of mappers: ";
+      cin >> num_mappers;
+    }
+  }
+  if (num_reducers <= 0)
+  {
+    cout << "Enter the number of reducer threads to use: ";
     cin >> num_reducers;
+    while (num_reducers <= 0)
+    {
+      cin.clear();
+      cin.ignore(numeric_limits<streamsize>::max(), '\n');
+      cout << "Please enter a non-zero number of reducers: ";
+      cin >> num_reducers;
+    }
   }
 }
