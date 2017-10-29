@@ -13,6 +13,7 @@
 
 void change_notifier::add_subscriber(change_subscriber& sub)
 {
+  //add subscriber to change_notifier subscriber_list:
   subscriber_list_mtx.lock();
   subscriber_list.push_back(&sub);
   //cout << "subscriber pushed to list" << endl;
@@ -27,6 +28,7 @@ void change_notifier::notify_all()
   //This function handles changes that all subscribers should be notified of:
   //cout << "notify_all " << subscriber_list.size() << " subscribers" << endl;
   subscriber_list_mtx.lock();
+  //notify all subscribers:
   for (sub_iter it = subscriber_list.begin(); it != subscriber_list.end(); it++)
   {
     //cout << "notify_all creation_time = " << (*it)->creation_time << endl;
@@ -52,7 +54,7 @@ void change_notifier::notify_one()
   }
   else
   {
-    //otherwise, the change will be notified whenever wait() is called:
+    //otherwise, the change will be notified of whenever wait() is called:
     num_unhandled_changes++;
   }
   subscriber_list_mtx.unlock();
@@ -60,30 +62,32 @@ void change_notifier::notify_one()
 }
 
 
-void change_notifier::notify(int num_changes)
+void change_notifier::notify(int changes_to_notify)
 {
-  //This function notifies of multiple changes that only one subscriber
-  // (each) needs to be be notified of:
+  //This function notifies of multiple changes for which
+  // only one subscriber (each) needs to be be notified:
 
   unhandled_changes_mtx.lock();
   subscriber_list_mtx.lock();
 
   //if too many subscribers are waiting, unfreeze condition_variables:
-  int num_not_waiting = subscriber_list.size()-num_waiting;
-  if (num_changes >= num_not_waiting)
+  int subscribers_not_waiting = subscriber_list.size()-num_waiting;
+  if (changes_to_notify >= subscribers_not_waiting)
   {
-    //handle changes:
+    //distribute changes:
     for (sub_iter it = subscriber_list.begin(); it != subscriber_list.end(); it++)
     {
+      //subscribers that are not waiting will see changes when wait() is called
       if ((*it)->unfreeze() == false) num_unhandled_changes++;
-      num_changes--;
-      if (num_changes == 0) break;
+
+      changes_to_notify--;
+      if (changes_to_notify == 0) break;
     }
   }
   else
   {
-    //otherwise, the change will be notified whenever wait() is called:
-    num_unhandled_changes+= num_changes;
+    //otherwise, all changes will be notified of whenever wait() is called:
+    num_unhandled_changes+= changes_to_notify;
   }
   subscriber_list_mtx.unlock();
   unhandled_changes_mtx.unlock();
@@ -92,6 +96,7 @@ void change_notifier::notify(int num_changes)
 
 void change_notifier::erase(sub_iter it)
 {
+  //called by change_subscriber destructor to erase itself from subscriber_list
   subscriber_list_mtx.lock();
   //cout << "erasing subscriber from list" << endl;
   subscriber_list.erase(it);
@@ -107,6 +112,7 @@ void change_subscriber::subscribe(change_notifier& p, unique_lock<mutex>& lck)
 {
   unique_l = &lck;
   parent = &p;
+  //add self to subscriber list:
   p.add_subscriber(*this);
 }
 
@@ -118,8 +124,8 @@ void change_subscriber::store_iterator(sub_iter i)
 
 bool change_subscriber::unfreeze()
 {
-  //This function notifies of singly-notified changes if waiting_on_cv:
-  //(otherwise, they will automatically be notified of when wait() is called)
+  //This function unfreezes a subscriber's condition_variable if it is waiting:
+  //(otherwise, any change will be notified of when wait() is called)
   if (waiting_on_cv)
   {
     cv.notify_one();
@@ -131,7 +137,8 @@ bool change_subscriber::unfreeze()
 
 void change_subscriber::notify_change()
 {
-  //This function makes sure a globally notified change is handled:
+  //This subscriber will now be notified once for a globally-notified change:
+
   //cout << "notifying of change" << endl;
   //cout << "creation_time = " << creation_time << endl;
   //cout << "waiting_on_cv = " << waiting_on_cv << endl;
@@ -152,16 +159,21 @@ void change_subscriber::wait()
 {
   if (num_globally_notified_changes == 0)
   {
+    //no global change notifications, check for single change notifications:
     parent->unhandled_changes_mtx.lock();
     if (parent->num_unhandled_changes >= 0)
     {
+      //there is a change; don't wait, immedialely notify calling thread:
+
       unique_l->unlock();
+      //decrement change counter:
       parent->num_unhandled_changes--;
       parent->unhandled_changes_mtx.unlock();
       unique_l->lock();
     }
     else
     {
+      //no changes, wait to be notified:
       parent->num_waiting++;
       parent->unhandled_changes_mtx.unlock();
       //cout << "waiting on cv" << endl;
@@ -174,9 +186,14 @@ void change_subscriber::wait()
   else
   {
     //cout << "num_globally_notified_changes = " << num_globally_notified_changes << endl;
-    //no need to wait; a change has happened:
+
+    //There is a globally-notified change to notify of first:
+
+    //don't wait; the calling thread is immedialely notified of a change:
+
     unique_l->unlock();
     //cout << "unlocked unique_l" << endl;
+    //decrement change counter:
     num_globally_notified_changes--;
     //cout << "decremented num_globally_notified_changes" << endl;
     unique_l->lock();

@@ -14,14 +14,20 @@
 /**
  * The change_notifier class is basically a condition_variable that
  * allows threads to receive notifications even if they are not waiting
- * when those notifications are sent.
+ * when those notifications are sent. In addition, any number of
+ * change notifcations are supported with (sort of) smart assignment.
  */
+
 
 
 using namespace std;
 
+//change_notifiers must be declared before adding change_subscribers
+//using the default (no arguments) constructor
 class change_notifier;
 
+//change_subscribers are declared to suspend a thread until it is
+//notified of a change by a change_notifier:
 class change_subscriber
 {
 private:
@@ -30,19 +36,23 @@ private:
   sub_iter it;
   change_notifier* parent;
   int num_globally_notified_changes = 0;
-public:
   bool waiting_on_cv = false;
-  clock_t creation_time; //unique identifier
+public:
+  const clock_t creation_time; //unique identifier
 
   //initial constructor:
   change_subscriber() : creation_time(clock()) {}
 
   change_subscriber(const change_subscriber& rhs) = delete;
-
   change_subscriber& operator=(const change_subscriber& rhs) = delete;
 
+  //must call this function to use:
   void subscribe(change_notifier& p, unique_lock<mutex>& lck);
+
+  //passive wait for changes:
   void wait();
+
+  //don't worry about these, for internal use:
   void notify_change();
   bool unfreeze();
   void store_iterator(sub_iter i);
@@ -60,9 +70,14 @@ private:
   void store_iterator(sub_iter i);
 public:
   change_subscriber subscribe(unique_lock<mutex>& unique_l);
+  //notify all subscribers of a change:
   void notify_all();
+  //notify one subscriber of a change:
   void notify_one();
-  void notify(int num_changes);
+  //notify n changes to available subscribers:
+  void notify(int);
+
+  //ignore these, for internal use:
   void erase(sub_iter it);
   void add_subscriber(change_subscriber& sub);
   friend void change_subscriber::wait();
