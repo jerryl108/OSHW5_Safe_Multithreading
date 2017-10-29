@@ -86,7 +86,7 @@ int main()
   /**
   * note: This loop only runs beyond 1 iteration in a few edge cases
   * when the change_subscriber condition_variable(s) refuse(s) to notify
-  * in this specific instance.
+  * at this point (if those cases even still exist).
   */
 
   //wait for the termination of all reducer threads:
