@@ -83,6 +83,7 @@ int main()
   //wait for the termination of all reducer threads:
   for (int i = 0 ; i < num_reducers ; i++)
   {
+    cout << "reducer " << i << " join" << endl;
     reducers[i]->join();
     delete reducers[i];
   }
@@ -98,12 +99,13 @@ void sum_counts(int reducer_index)
 
   int count1, count2, sum;
   unique_lock<mutex> lck(count_queue_mutex);
-  change_subscriber queue_changed = count_queue_modified.subscribe(lck);
-  assert(queue_changed.unique_l == &lck);
+  change_subscriber queue_changed;
+  queue_changed.subscribe(count_queue_modified,lck);
   //cout << "after_subscribing, cc= " << queue_changed.change_count << endl;
 
   while (mappers_running)
   {
+    cout << "mappers_running = " << mappers_running << endl;
     cout << "waiting" << endl;
     queue_changed.wait();
     cout << "wait finished" << endl;
@@ -127,7 +129,6 @@ void sum_counts(int reducer_index)
   }
   num_reducers_running--;
   cout << reducer_index << ": reducer terminating, num_reducers_running = " << num_reducers_running << endl;
-  queue_changed.close();
   cout << reducer_index << ": done terminating" << endl;
 }
 

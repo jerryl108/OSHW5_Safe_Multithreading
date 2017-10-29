@@ -1,7 +1,7 @@
 #ifndef CHANGE_NOTIFIER_H
 #define CHANGE_NOTIFIER_H
 
-#define sub_iter list<change_subscriber>::iterator
+#define sub_iter list<change_subscriber*>::iterator
 #include <list>
 #include <condition_variable>
 #include <mutex>
@@ -26,54 +26,50 @@ class change_subscriber;
 class change_notifier
 {
 private:
-  list<change_subscriber> subscriber_list;
+  list<change_subscriber*> subscriber_list;
   void store_iterator(sub_iter i);
+  mutex subscriber_list_mtx;
 public:
   change_subscriber subscribe(unique_lock<mutex>& unique_l);
   void notify_all();
   void erase(sub_iter it)
   {
+    subscriber_list_mtx.lock();
+    cout << "erasing subscriber from list" << endl;
     subscriber_list.erase(it);
+    subscriber_list_mtx.unlock();
   }
+  void add_subscriber(change_subscriber& sub);
   ~change_notifier();
 };
 
 class change_subscriber
 {
 private:
-  condition_variable* cv;
+  condition_variable cv;
+  unique_lock<mutex>* unique_l;
   sub_iter it;
   change_notifier* parent;
-  int change_count;
+  int change_count = 0;
 public:
-  unique_lock<mutex>* const unique_l;
-  bool* waiting_on_cv;
-  clock_t creation_time;
+  bool waiting_on_cv = false;
+  clock_t creation_time; //unique identifier
 
-  //note: please ONLY use the change_notifier::subscribe function
-  //and not this constructor; this class is not meant to be used alone:
-  change_subscriber() = delete;
-  change_subscriber(const change_subscriber& rhs) :
-    cv(rhs.cv), change_count(rhs.change_count), unique_l(rhs.unique_l),
-    waiting_on_cv(rhs.waiting_on_cv), parent(rhs.parent), it(rhs.it), creation_time(clock())
-  {
-    cout << "copy constructor creation_time = " << creation_time << endl;
-  }
+  //initial constructor:
+  change_subscriber() : creation_time(clock()) {}
+
+  change_subscriber(const change_subscriber& rhs) = delete;
+
   change_subscriber& operator=(const change_subscriber& rhs) = delete;
-  change_subscriber(unique_lock<mutex>& ul, change_notifier* p) :
-    cv(new condition_variable()), unique_l(&ul), parent(p), change_count(0),
-    waiting_on_cv(new bool), creation_time(clock())
-  {
-    *waiting_on_cv = false;
-  }
-  //should only be called when erased from parent's subscriber_listlo by
-  //the close() function:
+
+  void subscribe(change_notifier& p, unique_lock<mutex>& lck);
   void wait();
   void notify_change();
-  //Please call this at the end of the subscribing function instead of
-  //letting the default destructor be called:
-  void close();
   void store_iterator(sub_iter i);
+  ~change_subscriber()
+  {
+    parent->erase(it);
+  }
 };
 
 #endif

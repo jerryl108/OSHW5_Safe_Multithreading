@@ -9,40 +9,46 @@
  * when those notifications are sent.
  */
 
-change_subscriber change_notifier::subscribe(unique_lock<mutex>& unique_l)
+void change_subscriber::subscribe(change_notifier& p, unique_lock<mutex>& lck)
 {
-  change_subscriber sub = change_subscriber(unique_l,this);
-  cout << "subscriber created" << endl;
-  subscriber_list.push_back(sub);
+  unique_l = &lck;
+  parent = &p;
+  p.add_subscriber(*this);
+}
+
+void change_notifier::add_subscriber(change_subscriber& sub)
+{
+  subscriber_list_mtx.lock();
+  subscriber_list.push_back(&sub);
   cout << "subscriber pushed to list" << endl;
   sub_iter it = --subscriber_list.end();
-  //make sure another subscriber added by another thread hasn't just interfered:
-  while ((*it).unique_l != sub.unique_l) it--;
+  subscriber_list_mtx.unlock();
   cout << "iterator created" << endl;
-  (*it).store_iterator(it);
+  (*it)->store_iterator(it);
   //cout << "list cc = " << subscriber_list.back().change_count;
-  return *it;
 }
 
 void change_notifier::notify_all()
 {
   cout << "notify_all " << subscriber_list.size() << " subscribers" << endl;
+  subscriber_list_mtx.lock();
   for (sub_iter it = subscriber_list.begin(); it != subscriber_list.end(); it++)
   {
     cout << "loop iteration" << endl;
-    cout << "notify_all *waiting_on_cv = " << *((*it).waiting_on_cv) << endl;
-    cout << "notify_all creation_time = " << (*it).creation_time << endl;
-    (*it).notify_change();
+    cout << "notify_all waiting_on_cv = " << (*it)->waiting_on_cv << endl;
+    cout << "notify_all creation_time = " << (*it)->creation_time << endl;
+    (*it)->notify_change();
   }
+  subscriber_list_mtx.unlock();
   cout << "done notifying" << endl;
 }
 
 void change_subscriber::store_iterator(sub_iter i)
 {
-  cout << "store_it *waiting_on_cv= " << *waiting_on_cv << endl;
+  cout << "store_it waiting_on_cv= " << waiting_on_cv << endl;
   cout << "store_it creation_time= " << creation_time << endl;
   it = i;
-  cout << "after store_it *waiting_on_cv= " << *waiting_on_cv << endl;
+  cout << "after store_it waiting_on_cv= " << waiting_on_cv << endl;
   cout << "store_it creation_time= " << creation_time << endl;
 }
 
@@ -54,15 +60,14 @@ change_notifier::~change_notifier()
 void change_subscriber::wait()
 {
   cout << "change_subscriber wait, cc=" << change_count << endl;
-  assert((*it).unique_l == unique_l);
   if (change_count == 0)
   {
     cout << "waiting on cv" << endl;
-    *waiting_on_cv = true;
-    cout <<"wait *waiting_on_cv = " << *waiting_on_cv << endl;
+    waiting_on_cv = true;
+    cout <<"wait waiting_on_cv = " << waiting_on_cv << endl;
     cout <<"wait creation_time = " << creation_time << endl;
-    cv->wait(*unique_l);
-    *waiting_on_cv = false;
+    cv.wait(*unique_l);
+    waiting_on_cv = false;
   }
   else
   {
@@ -79,26 +84,19 @@ void change_subscriber::wait()
 
 void change_subscriber::notify_change()
 {
-  cout << "notifying of change" << endl;
+  cout << "notifying of change" << esubscriberssubscriberssubscriberssubscriberssubscriberssubscribersndl;
   cout << "creation_time = " << creation_time << endl;
-  cout << "*waiting_on_cv = " << *waiting_on_cv << endl;
-  if (*waiting_on_cv)
+  cout << "waiting_on_cv = " << waiting_on_cv << endl;
+  if (waiting_on_cv)
   {
     cout << "is waiting" << endl;
-    cv->notify_one();
+    cv.notify_all();
   }
   else
-  {
+  { 
     change_count++;
   }
   cout << "notified" << endl;
-}
-//should be called at end of subscribing function (instead of default destructor):
-void change_subscriber::close()
-{
-  parent->erase(it);
-  delete cv;
-  delete waiting_on_cv;
 }
 
 #endif
