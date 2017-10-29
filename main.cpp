@@ -299,12 +299,13 @@ void read_config_file()
             }
             else if (c == '\\')
             {
-              //next character will be escaped
+              //next ' character will be escaped
               escaped = true;
               continue; //ignore escape character
             }
             //otherwise, add character to search_str
             search_str += c;
+            escaped = false;
           }
           if (!config_file.good() || invalid)
           {
