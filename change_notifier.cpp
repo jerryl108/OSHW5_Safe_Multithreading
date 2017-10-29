@@ -25,7 +25,7 @@ void change_notifier::add_subscriber(change_subscriber& sub)
   subscriber_list_mtx.unlock();
   cout << "iterator created" << endl;
   (*it)->store_iterator(it);
-  //cout << "list cc = " << subscriber_list.back().change_count;
+  //cout << "list cc = " << subscriber_list.back().num_globally_notified_changes;
 }
 
 void change_notifier::notify_all()
@@ -59,8 +59,8 @@ change_notifier::~change_notifier()
 
 void change_subscriber::wait()
 {
-  cout << "change_subscriber wait, cc=" << change_count << endl;
-  if (change_count == 0)
+  cout << "change_subscriber wait, cc=" << num_globally_notified_changes << endl;
+  if (num_globally_notified_changes == 0)
   {
     cout << "waiting on cv" << endl;
     waiting_on_cv = true;
@@ -71,12 +71,12 @@ void change_subscriber::wait()
   }
   else
   {
-    cout << "change_count = " << change_count << endl;
+    cout << "num_globally_notified_changes = " << num_globally_notified_changes << endl;
     //no need to wait; a change has happened:
     unique_l->unlock();
     cout << "unlocked unique_l" << endl;
-    change_count--;
-    cout << "decremented change_count" << endl;
+    num_globally_notified_changes--;
+    cout << "decremented num_globally_notified_changes" << endl;
     unique_l->lock();
     cout << "re-locked unique_l" << endl;
   }
@@ -90,11 +90,11 @@ void change_subscriber::notify_change()
   if (waiting_on_cv)
   {
     cout << "is waiting" << endl;
-    cv.notify_all();
+    cv.notify_one();
   }
   else
   {
-    change_count++;
+    num_globally_notified_changes++;
   }
   cout << "notified" << endl;
 }

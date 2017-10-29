@@ -82,7 +82,9 @@ int main()
     count_queue_modified.notify_all();
   }
   cout << "notified all reducers" << endl;
-
+  //note: This loop only runs beyond 1 iteration in a few edge cases
+  // when the change_subscriber condition_variable(s) refuse(s) to notify
+  // in this specific instance.
 
   //wait for the termination of all reducer threads:
   for (int i = 0 ; i < num_reducers ; i++)

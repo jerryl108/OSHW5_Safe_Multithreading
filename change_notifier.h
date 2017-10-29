@@ -40,6 +40,7 @@ public:
     subscriber_list_mtx.unlock();
   }
   void add_subscriber(change_subscriber& sub);
+  friend void change_subscriber::wait();
   ~change_notifier();
 };
 
@@ -50,7 +51,7 @@ private:
   unique_lock<mutex>* unique_l;
   sub_iter it;
   change_notifier* parent;
-  int change_count = 0;
+  int num_globally_notified_changes = 0;
 public:
   bool waiting_on_cv = false;
   clock_t creation_time; //unique identifier
