@@ -75,8 +75,12 @@ int main()
 
   //There are no more mapper threads:
   mappers_running = false;
-  //make damned sure that the producer threads realize that:
-  count_queue_modified.notify_all();
+
+  //make damned sure that the reducer threads realize that:
+  while (num_reducers_running > 0)
+  {
+    count_queue_modified.notify_all();
+  }
   cout << "notified all reducers" << endl;
 
 

@@ -84,7 +84,7 @@ void change_subscriber::wait()
 
 void change_subscriber::notify_change()
 {
-  cout << "notifying of change" << esubscriberssubscriberssubscriberssubscriberssubscriberssubscribersndl;
+  cout << "notifying of change" << endl;
   cout << "creation_time = " << creation_time << endl;
   cout << "waiting_on_cv = " << waiting_on_cv << endl;
   if (waiting_on_cv)
@@ -93,7 +93,7 @@ void change_subscriber::notify_change()
     cv.notify_all();
   }
   else
-  { 
+  {
     change_count++;
   }
   cout << "notified" << endl;
