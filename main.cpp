@@ -5,13 +5,14 @@
 #include <deque>
 #include <string>
 #include <mutex>
+#include <cctype>
 #include "change_notifier.h"
 
 using namespace std;
 
 deque<string> file_queue;
 deque<int> count_queue;
-string search_str;
+string search_str = "";
 mutex file_queue_mutex;
 mutex count_queue_mutex;
 change_notifier count_queue_modified;
@@ -20,11 +21,16 @@ int num_reducers_running;
 int num_reducers;
 int num_mappers;
 
+bool verbose = false;
+bool case_sensitive = true;
+
 void count_string_ocurrences();
 void sum_counts(int reducer_index);
 void get_user_input();
 void read_config_file();
 void fill_file_queue();
+bool equals(char a, char b);
+char ASCII_equivalent_punctuation(int utf8_low_byte, int utf8_middle_byte);
 
 int main()
 {
@@ -155,7 +161,8 @@ void count_string_ocurrences()
     search_str_index = 0;
     //cout << "checking file queue" << endl;
 
-    //get file from file queue:
+    //get filile) {}
+      //ce from file queue:
     file_queue_mutex.lock();
     if (file_queue.size() > 0)
     {
@@ -175,9 +182,12 @@ void count_string_ocurrences()
     //try to open file:
     ifstream file(file_name);
 
-    if (file) {}
+    if (file)
+    {
       //cout << "successfully opened file" << endl;
-    else {
+    }
+    else
+    {
       cout << "cannot open file " << file_name << endl;
       continue;
     }
@@ -186,7 +196,7 @@ void count_string_ocurrences()
     char c;
 
     //read file in one character at a time:
-    while (!file.eof())
+    while (file.good())
     {
       file.get(c);
       //cout << "read in char '" << c << "'" << endl;
@@ -195,10 +205,29 @@ void count_string_ocurrences()
         //the next character of the search string has been found
         search_str_index++;
       }
+      else if ((int)(c&0xFF) == 0xE2)
+      {
+        //this character is the first byte of a 3-byte Unicode punctuation mark:
+        char c2;
+        char c3;
+        char ASCII_equiv;
+
+        //cout << "3-byte Unicode punctuation mark" << endl;
+
+        //read the next two characters:
+        file.get(c2);
+        file.get(c3);
+
+        ASCII_equiv = ASCII_equivalent_punctuation((int)(c3&0xFF),(int)(c2&0xFF));
+        //the Unicode character could be the next character in the search string:
+        //cout << "equiv = '" << ASCII_equiv << "'" << endl;
+        if (ASCII_equiv == search_str[search_str_index]) search_str_index++;
+      }
       else search_str_index = 0;
       //if entire search string found:
       if (search_str_index == search_str.length())
       {
+        //cout << "string found" << endl;
         count++;
         search_str_index = 0;
       }
@@ -260,73 +289,66 @@ void read_config_file()
     }
     else if (option_name == "search_string:")
     {
-      config_file >> search_str;
-      //cout << "search_str " << search_str << endl;
-      if (!config_file.good())
-        break;
-      //parse search string within single quotes (that can be escaped with a \)
-      if (search_str.length() > 0)
+      //the search string may have whitespace!
+      //read it one character at a time:
+      char c;
+      bool escaped = false;
+      bool invalid = false;
+
+      //get characters until the first single quote or new line
+      while (config_file.good())
       {
-        if (search_str[0] != '\'')
+        //get character
+        config_file.get(c);
+        if (c == '\'') break;
+        else if (c == '\n')
+        {
+          invalid = true;
           break;
-        else if (search_str[search_str.length()-1] != '\'')
-        {
-          //the search string has whitespace!
-          //parse it one character at a time:
-          char c;
-          bool escaped = false;
-          bool invalid = false;
-
-          while (config_file.good())
-          {
-            //get character
-            config_file.get(c);
-
-            if (c == '\'')
-            {
-              if (escaped)
-              {
-                escaped = false;
-                continue; //ignore ' character
-              }
-              break; //end of search string
-            }
-            else if (c == '\n')
-            {
-              search_str = "";
-              invalid = true;
-              break; //stop parsing search string
-            }
-            else if (c == '\\')
-            {
-              //next ' character will be escaped
-              escaped = true;
-              continue; //ignore escape character
-            }
-            //otherwise, add character to search_str
-            search_str += c;
-            escaped = false;
-          }
-          if (!config_file.good() || invalid)
-          {
-            //there was a problem with the search string:
-            search_str = "";
-            break;
-          }
-          else
-          {
-            //remove leading single quote
-            search_str = search_str.substr(1,search_str.length()-1);
-          }
-        }
-        else
-        {
-          //no whitespace, search string completely contained in quotes
-          //remove single qoutes:
-          search_str = search_str.substr(1,search_str.length()-2);
         }
       }
-      //done parsing search string
+      if (!invalid)
+      {
+        //continue reading search string:
+        while (config_file.good())
+        {
+          //get character
+          config_file.get(c);
+
+          if (c == '\'')
+          {
+            if (escaped)
+            {
+              escaped = false;
+              search_str += '\'';
+              continue; //ignore ' character
+            }
+            break; //end of search string
+          }
+          else if (c == '\n')
+          {
+            search_str = "";
+            invalid = true;
+            break; //stop parsing search string
+          }
+          else if (c == '\\')
+          {
+            //next ' character will be escaped
+            escaped = true;
+            continue; //ignore escape character
+          }
+          //otherwise, add character to search_str
+          search_str += c;
+          escaped = false;
+        }
+        if (!config_file.good() || invalid)
+        {
+          //there was a problem with the search string:
+          search_str = "";
+          break;
+        }
+      }
+      //done reading search string
     }
     else if (option_name == "num_mappers:")
     {
@@ -349,8 +371,8 @@ void get_user_input()
   //if search_str not already read in from config file:
   if (search_str.length() == 0)
   {
-    cout << "Enter the keyword/string to search for: " << endl;
-    cin >> search_str;
+    cout << "Enter the keyword/string to search for (it can have whitespace): " << endl;
+    getline(cin,search_str);
   }
   //if num_mappers not already read in from config file:
   if (num_mappers <= 0)
@@ -380,4 +402,36 @@ void get_user_input()
       cin >> num_reducers;
     }
   }
+}
+
+bool equals(char a, char b)
+{
+  if (case_sensitive)
+  {
+    return a == b;
+  }
+  else
+  {
+    return toupper((int)a) == toupper((int)b);
+  }
+}
+
+// Because some ASCII punctuation marks have many Unicode equivalents:
+char ASCII_equivalent_punctuation(int utf8_low_byte, int utf8_middle_byte)
+{
+  int utf8_low_bytes = utf8_low_byte | (utf8_middle_byte<<8);
+  //cout << "utf8_low_bytes = " << hex << utf8_low_bytes << endl;
+
+  //return ASCII equivalent:
+  if (utf8_low_bytes >= 0x8080 && utf8_low_bytes <= 0x808A)
+    return ' '; //space
+  else if (utf8_low_bytes >= 0x8090 && utf8_low_bytes <= 0x8095)
+    return '-'; //dash
+  else if (utf8_low_bytes >= 0x8098 && utf8_low_bytes <= 0x809B)
+    return '\''; //single quote or apostrophe
+  else if (utf8_low_bytes >= 0x809C && utf8_low_bytes <= 0x809F)
+    return '"'; //double quote
+  else return static_cast<char>(0); //no
+
+  //F@CK THI? SH!T!!
 }

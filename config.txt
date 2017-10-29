@@ -1,5 +1,5 @@
-# Example parameters (must uncomment to use):
+# Example parameters (uncomment these or add your own):
 #
-# num_mappers: 3
-# search_string: 'Gutenberg\'s The'
-# num_reducers: 3
+num_mappers: 1
+search_string: 'Project Gutenberg'
+num_reducers: 1
