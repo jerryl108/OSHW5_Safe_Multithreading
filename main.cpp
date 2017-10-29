@@ -129,7 +129,7 @@ void sum_counts(int reducer_index)
 
       lck.lock();
       count_queue.push_back(sum);
-      count_queue_modified.notify_all();
+      count_queue_modified.notify_one();
       cout << reducer_index << ": notified reducers" << endl;
     }
   }
