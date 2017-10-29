@@ -106,8 +106,15 @@ int main()
     delete reducers[i];
   }
 
+  cout << endl;
   cout << "There are " << count_queue.front() << " total instances of the string \"" << search_str << "\"." << endl;
-
+  cout << endl;
+  if (case_sensitive)
+    cout << "Note: Search was case sensitive." << endl;
+  else
+    cout << "Note: Search was not case sensitive." << endl;
+  cout << "Note: You can change this in config.txt." << endl;
+  cout << endl;
   return 0;
 }
 
@@ -381,6 +388,7 @@ void read_config_file()
 
 void get_user_input()
 {
+  cout << endl;
   //if search_str not already read in from config file:
   if (search_str.length() == 0)
   {
