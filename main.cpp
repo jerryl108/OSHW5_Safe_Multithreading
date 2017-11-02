@@ -125,7 +125,7 @@ void sum_counts(int reducer_index)
   change_subscriber queue_changed;
   queue_changed.subscribe(count_queue_modified,lck);
 
-  while (mappers_running)
+  while (mappers_running || count_queue.size() > 1)
   {
     //passive wait for change in count queue:
     queue_changed.wait();
